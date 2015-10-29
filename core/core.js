@@ -1,11 +1,11 @@
-window.AtomicCanvas = window.AtomicCanvas || {};
+window.Spark = window.Spark || {};
 
 /*
  * Color used for fills, strokes, gradients, etc.
  *
  * value (String): hexadecimal representation of the color. Default: #000000.
  */
-window.AtomicCanvas.Color = function (params) {
+window.Spark.Color = function (params) {
   this.value = params.value || '#000000';
   this.toString = function () { return this.value; }
 };
@@ -16,9 +16,9 @@ window.AtomicCanvas.Color = function (params) {
  * position (Number): the position of this ColorStop when used on a gradient, ranging from 0 to 1. If omitted, it is calculated automatically.
  * color (Color): the color used for this ColorStop.
  */
-window.AtomicCanvas.ColorStop = function (params) {
+window.Spark.ColorStop = function (params) {
   this.position = params.position;
-  this.color = params.color || new AtomicCanvas.Color();
+  this.color = params.color || new Spark.Color();
 };
 
 /*
@@ -33,8 +33,8 @@ window.AtomicCanvas.ColorStop = function (params) {
     outerRadius (Number): outer radius where the color ramp stops (only for radial gradients).
   }
  */
-window.AtomicCanvas.Gradient = function (params) {
-  this.type = params.type || AtomicCanvas.GradientType.LINEAR;
+window.Spark.Gradient = function (params) {
+  this.type = params.type || Spark.GradientType.LINEAR;
   this.colorStops = params.colorStops || [];
   this.startX = params.startX || 0;
   this.startY = params.startY || 0;
@@ -47,7 +47,7 @@ window.AtomicCanvas.Gradient = function (params) {
 /*
  * Constants for defining gradient types.
  */
-window.AtomicCanvas.GradientType = {
+window.Spark.GradientType = {
   LINEAR: 'linear',
   RADIAL: 'radial'
 };
@@ -55,16 +55,69 @@ window.AtomicCanvas.GradientType = {
 /*
  * Transform with translation, rotation and scale.
  */
-window.AtomicCanvas.Transform = function (params) {
+window.Spark.Transform = function (params) {
   this.positionX = params.positionX || 0;
   this.positionY = params.positionY || 0;
   this.rotation = params.rotation || 0;
   this.scaleX = params.scaleX || 1;
   this.scaleY = params.scaleY || 1;
+  this.offsetX = params.offsetX || 0;
+  this.offsetY = params.offsetY || 0;
 };
 
-window.AtomicCanvas.Core = function () {
+window.Spark.Core = function () {
   var self = this;
+
+  var transform = function (transform) {
+    self.context.save();
+
+    self.context.translate(transform.positionX, transform.positionY);
+    self.context.rotate(Math.degToRad(transform.rotation));
+    self.context.scale(transform.scaleX, transform.scaleY);
+    self.context.translate(transform.offsetX, transform.offsetY);
+  };
+
+  var reset = function () {
+    self.context.restore();
+  };
+
+  var prepareColor = function ($color) {
+    var result;
+
+    if ($color instanceof Spark.Gradient) {
+      if ($color.type == Spark.GradientType.RADIAL) {
+        result = self.context.createRadialGradient($color.startX, $color.startY, $color.innerRadius, $color.endX, $color.endY, $color.outerRadius);
+      } else {
+        result = self.context.createLinearGradient($color.startX, $color.startY, $color.endX, $color.endY);
+      }
+
+      for (var i = 0; i < $color.colorStops.length; i++) {
+        var currentColorStop = $color.colorStops[i];
+
+        result.addColorStop(currentColorStop.position || ((1 / ($color.colorStops.length - 1)) * i), currentColorStop.color.value);
+      }
+    } else if ($color instanceof Spark.Color) {
+      result = $color.value;
+    } else {
+      result = $color;
+    }
+
+    return result || 'transparent';
+  };
+
+  var fillAndStroke = function ($fillColor, $strokeColor, $strokeWidth) {
+    self.context.fillStyle = prepareColor($fillColor);
+    self.context.strokeStyle = prepareColor($strokeColor);
+    self.context.lineWidth = $strokeWidth;
+
+    if ($fillColor) {
+      self.context.fill();
+    }
+
+    if ($strokeColor) {
+      self.context.stroke();
+    }
+  };
 
   this.canvas;
   this.context;
@@ -127,12 +180,26 @@ window.AtomicCanvas.Core = function () {
 
   /*
    * Generic text drawing function.
+   *
+   * x (Number): 
+   * y (Number): 
+   * text (String): 
+   * fontFamily (String): 
+   * fontSize (Number): 
+   * fontStyle (String): 
+   * color (Spark.Color): 
+   * alignment (String): 
    */
-  this.drawText = function ($x, $y, $text, $fontFamily, $fontSize, $fontStyle, $color, $alignment) {
-    this.context.fillStyle = $color || '#000000';
-    this.context.font = [$fontStyle || '', $fontSize || '12pt', $fontFamily || 'Courier'].join(' ');
-    this.context.textAlign = $alignment || 'start';
-    this.context.fillText($text, $x, $y);
+  // this.drawText = function ($x, $y, $text, $fontFamily, $fontSize, $fontStyle, $color, $alignment) {
+  this.drawText = function (params) {
+    transform(params.transform);
+
+    this.context.fillStyle = params.color ? params.color.value : '#000000';
+    this.context.font = [params.fontStyle || '', (params.fontSize || 12) + 'pt', params.fontFamily || 'Courier'].join(' ');
+    this.context.textAlign = params.alignment || 'start';
+    this.context.fillText(params.text, 0, 0);
+
+    reset();
   };
 
   /*
@@ -149,55 +216,30 @@ window.AtomicCanvas.Core = function () {
   /*
    * Generic rect drawing function.
    */
-  this.drawRect = function ($transform, $w, $h, $color) {
-    var $x = $transform.positionX;
-    var $y = $transform.positionY;
-    var fill;
+  // this.drawRect = function ($transform, $w, $h, $fillColor, $strokeColor, $strokeWidth) {
+  this.drawRect = function (params) {
+    transform(params.transform);
 
-    if ($color instanceof AtomicCanvas.Gradient) {
-      if ($color.type == AtomicCanvas.GradientType.RADIAL) {
-        fill = this.context.createRadialGradient($color.startX, $color.startY, $color.innerRadius, $color.endX, $color.endY, $color.outerRadius);
-      } else {
-        fill = this.context.createLinearGradient($color.startX, $color.startY, $color.endX, $color.endY);
-      }
+    this.context.beginPath();
+    this.context.rect(0, 0, params.width, params.height);
+    this.context.closePath();
 
-      for (var i = 0; i < $color.colorStops.length; i++) {
-        var currentColorStop = $color.colorStops[i];
-
-        fill.addColorStop(currentColorStop.position || ((1 / ($color.colorStops.length - 1)) * i), currentColorStop.color.value);
-      }
-    } else if ($color instanceof AtomicCanvas.Color) {
-      fill = $color.value;
-    } else {
-      fill = $color;
-    }
-
-    // this.context.translate($x + 20, $y + 20); // PIVOT POINT
-    this.context.translate($x, $y);
-    this.context.rotate(Math.degToRad($transform.rotation));
-    // this.context.translate(-20, -20); // PIVOT POINT
-    this.context.scale($transform.scaleX, $transform.scaleY);
-
-    this.context.fillStyle = fill;
-    this.context.fillRect(0, 0, $w, $h);
-
-    this.context.setTransform(1, 0, 0, 1, 0, 0);
+    fillAndStroke(params.fill, params.stroke, params.strokeWidth);
+    reset();
   };
 
-  this.drawEllipse = function ($x, $y, $w, $h, $fill, $stroke, $strokeWidth) {
-    this.context.fillStyle = $fill;
-    this.context.strokeStyle = $stroke;
-    this.context.lineWidth = $strokeWidth || 0;
+  // this.drawEllipse = function ($transform, $w, $h, $fillColor, $strokeColor, $strokeWidth) {
+  this.drawEllipse = function (params) {
+    transform(params.transform);
+    
     this.context.beginPath();
 
     var o = 0.551915024494;
-    var a = o * ($w / 2);
-    var b = $h / 2;
-    var c = $w / 2;
+    var a = o * (params.width / 2);
+    var b = params.height / 2;
+    var c = params.width / 2;
     var d = -o * b;
     var e = o * b;
-
-    this.context.translate($x, $y);
 
     this.context.moveTo(0 + c, 0);
     this.context.bezierCurveTo(a + c, -b + b, c + c, d + b, c + c, 0 + b);
@@ -205,21 +247,23 @@ window.AtomicCanvas.Core = function () {
     this.context.bezierCurveTo(-a + c, b + b, -c + c, e + b, -c + c, 0 + b);
     this.context.bezierCurveTo(-c + c, d + b, -a + c, -b + b, 0 + c, -b + b);
 
-    if ($fill) {
-      this.context.fill();
-    }
-
-    if ($stroke) {
-      this.context.stroke();
-    }
-
     this.context.closePath();
 
-    this.context.setTransform(1, 0, 0, 1, 0, 0);
+    fillAndStroke(params.fill, params.stroke, params.strokeWidth);
+    reset();
   };
 
-  this.drawCircle = function ($x, $y, $radius, $fill, $stroke, $strokeWidth) {
-    this.drawEllipse($x, $y, $radius * 2, $radius * 2, $fill, $stroke, $strokeWidth);
+  // this.drawCircle = function ($x, $y, $radius, $fill, $stroke, $strokeWidth) {
+  this.drawCircle = function (params) {
+    // this.drawEllipse($x, $y, $radius * 2, $radius * 2, $fill, $stroke, $strokeWidth);
+    this.drawEllipse({
+      transform: params.transform,
+      width: params.radius * 2,
+      height: params.radius * 2,
+      fill: params.fill,
+      stroke: params.stroke,
+      strokeWidth: params.strokeWidth
+    });
   };
 
   this.drawLine = function ($startX, $startY, $endX, $endY, $color, $width) {
@@ -300,5 +344,27 @@ window.AtomicCanvas.Core = function () {
     this.context.restore();
   };
 
-  this.drawPath = function() {};
+  /*
+   * Draws a closed path.
+   * TODO: receive and array of classes (Line, Curve, BezierCurve and QuadraticCurve) instead of objects.
+   */
+  this.drawPath = function (params) {
+    transform(params.transform);
+
+    var currentSegment;
+
+    this.context.beginPath();
+    this.context.moveTo(params.startingPoint.x, params.startingPoint.y);
+
+    for (var i = 0; i < params.segments.length; i++) {
+      currentSegment = params.segments[i];
+
+      this.context.lineTo(currentSegment.x, currentSegment.y);
+    }
+
+    this.context.closePath();
+
+    fillAndStroke(params.fill, params.stroke, params.strokeWidth);
+    reset();
+  };
 };
