@@ -22,16 +22,16 @@ window.Spark.ColorStop = function (params) {
 };
 
 /*
-  params: {
-    type (GradientType): the type of the gradient.
-    colorStops (ColorStop[]): array of ColorStops.
-    startX (Number): horizontal starting point relative to the top-left transform point.
-    startY (Number): vertical starting point relative to the top-left transform point.
-    endX (Number): horizontal ending point relative to the top-left transform point.
-    endY (Number): vertical ending point relative to the top-left transform point.
-    innerRadius (Number): inner radius where the color ramp starts (only for radial gradients).
-    outerRadius (Number): outer radius where the color ramp stops (only for radial gradients).
-  }
+ * Gradients used for fill/stroke.
+ *
+ * type (GradientType): the type of the gradient.
+ * colorStops (ColorStop[]): array of ColorStops.
+ * startX (Number): horizontal starting point relative to the top-left transform point.
+ * startY (Number): vertical starting point relative to the top-left transform point.
+ * endX (Number): horizontal ending point relative to the top-left transform point.
+ * endY (Number): vertical ending point relative to the top-left transform point.
+ * innerRadius (Number): inner radius where the color ramp starts (only for radial gradients).
+ * outerRadius (Number): outer radius where the color ramp stops (only for radial gradients).
  */
 window.Spark.Gradient = function (params) {
   this.type = params.type || Spark.GradientType.LINEAR;
@@ -54,6 +54,14 @@ window.Spark.GradientType = {
 
 /*
  * Transform with translation, rotation and scale.
+ *
+ * positionX (Number):
+ * positionY (Number):
+ * rotation (Number):
+ * scaleX (Number):
+ * scaleY (Number):
+ * offsetX (Number):
+ * offsetY (Number):
  */
 window.Spark.Transform = function (params) {
   this.positionX = params.positionX || 0;
@@ -65,8 +73,38 @@ window.Spark.Transform = function (params) {
   this.offsetY = params.offsetY || 0;
 };
 
+/*
+ * Base class for images used on rendering.
+ *
+ * TODO: load LZMA compressed string.
+ */
+window.Spark.Image = function (params) {
+  var image = new Image();
+
+  this.get = function () {
+    return image;
+  };
+
+  this.loadFromUrl = function (url) {
+    image.src = url;
+  };
+
+  this.loadFromBase64 = function (type, content) {
+    image.src = 'data:image/' + type + ';base64,' + content;
+  };
+
+  if (params.url) {
+    image.src = params.url;
+  } else if (params.type && params.content) {
+    image.src = 'data:image/' + params.type + ';base64,' + params.content;
+  }
+};
+
 window.Spark.Core = function () {
+  /* PRIVATE */
   var self = this;
+  var framesRendered = 0;
+  var fpsLastTime = 0;
 
   var transform = function (transform) {
     self.context.save();
@@ -119,9 +157,27 @@ window.Spark.Core = function () {
     }
   };
 
+  var fillAndStrokeText = function ($text, $fillColor, $strokeColor, $strokeWidth) {
+    self.context.fillStyle = prepareColor($fillColor);
+    self.context.strokeStyle = prepareColor($strokeColor);
+    self.context.lineWidth = $strokeWidth;
+
+    if ($fillColor) {
+      self.context.fillText($text, 0, 0);
+    }
+
+    if ($strokeColor) {
+      self.context.strokeText($text, 0, 0);
+    }
+  };
+
+  /* PUBLIC */
+
   this.canvas;
   this.context;
   this.deltaTime;
+  this.fps;
+  this.showFps = false;
 
   /*
    * Receives a DOM element and setups a canvas inside it.
@@ -150,21 +206,44 @@ window.Spark.Core = function () {
     (function magicLoop() {
       window.requestAnimationFrame(magicLoop);
       self.deltaTime = Date.now();
-      self.clearContext();
+
+      if ((Date.now() - fpsLastTime) > 1000) {
+        fpsLastTime = Date.now();
+        self.fps = framesRendered;
+        framesRendered = 0;
+      }
+
+      self.clear();
+
       $mainLoop();
+
+      if (self.showFps == true) {
+        self.drawText({
+          transform: {
+            positionX: 630,
+            positionY: 20
+          },
+          text: 'FPS: ' + cc.fps,
+          alignment: 'end',
+          fill: '#f00'
+        });
+      }
+
       self.deltaTime = Date.now() - self.deltaTime;
+
+      framesRendered++;
     })();
   };
 
   /*
    * Clears the canvas.
    */
-  this.clearContext = function () {
+  this.clear = function () {
     this.canvas.width = this.canvas.width;
   };
 
   /*
-   * Ensures 'window.requestAnimationFrame' exists.
+   * Ensures `window.requestAnimationFrame` exists.
    */
   this.setupRequestAnimationFrame = function () {
     var raf = window.requestAnimationFrame ||
@@ -181,42 +260,35 @@ window.Spark.Core = function () {
   /*
    * Generic text drawing function.
    *
-   * x (Number): 
-   * y (Number): 
    * text (String): 
    * fontFamily (String): 
    * fontSize (Number): 
    * fontStyle (String): 
-   * color (Spark.Color): 
    * alignment (String): 
+   * fill (Spark.Color): 
+   * stroke (Spark.Color):
+   * strokeWidth (Number):
    */
-  // this.drawText = function ($x, $y, $text, $fontFamily, $fontSize, $fontStyle, $color, $alignment) {
   this.drawText = function (params) {
     transform(params.transform);
 
-    this.context.fillStyle = params.color ? params.color.value : '#000000';
     this.context.font = [params.fontStyle || '', (params.fontSize || 12) + 'pt', params.fontFamily || 'Courier'].join(' ');
     this.context.textAlign = params.alignment || 'start';
-    this.context.fillText(params.text, 0, 0);
 
+    fillAndStrokeText(params.text, params.fill || '#000', params.stroke, params.strokeWidth);
     reset();
   };
 
   /*
-   * Draws a hollowed text.
-   */
-  this.drawHollowText = function ($x, $y, $text, $fontFamily, $fontSize, $fontStyle, $color, $lineWidth, $alignment) {
-    this.context.strokeStyle = $color || '#000000';
-    this.context.lineWidth = $lineWidth || 1;
-    this.context.font = [$fontStyle || '', $fontSize || '12pt', $fontFamily || 'Courier'].join(' ');
-    this.context.textAlign = $alignment || 'start';
-    this.context.strokeText($text, $x, $y);
-  };
-
-  /*
    * Generic rect drawing function.
+   *
+   * transform (Spark.Transform):
+   * width (Number):
+   * height (Number):
+   * fill (Spark.Color):
+   * stroke (Spark.Color):
+   * strokeWidth (Number):
    */
-  // this.drawRect = function ($transform, $w, $h, $fillColor, $strokeColor, $strokeWidth) {
   this.drawRect = function (params) {
     transform(params.transform);
 
@@ -228,7 +300,16 @@ window.Spark.Core = function () {
     reset();
   };
 
-  // this.drawEllipse = function ($transform, $w, $h, $fillColor, $strokeColor, $strokeWidth) {
+  /*
+   * Draws an ellipsoid.
+   *
+   * transform (Spark.Transform):
+   * width (Number):
+   * height (Number):
+   * fill (Spark.Color):
+   * stroke (Spark.Color):
+   * strokeWidth (Number):
+   */
   this.drawEllipse = function (params) {
     transform(params.transform);
     
@@ -253,9 +334,16 @@ window.Spark.Core = function () {
     reset();
   };
 
-  // this.drawCircle = function ($x, $y, $radius, $fill, $stroke, $strokeWidth) {
+  /*
+   * Draws a circle using the `drawEllipse` function.
+   *
+   * transform (Spark.Transform):
+   * radius (Number):
+   * fill (Spark.Color):
+   * stroke (Spark.Color):
+   * strokeWidth (Number):
+   */
   this.drawCircle = function (params) {
-    // this.drawEllipse($x, $y, $radius * 2, $radius * 2, $fill, $stroke, $strokeWidth);
     this.drawEllipse({
       transform: params.transform,
       width: params.radius * 2,
@@ -266,68 +354,122 @@ window.Spark.Core = function () {
     });
   };
 
-  this.drawLine = function ($startX, $startY, $endX, $endY, $color, $width) {
-    this.context.strokeStyle = $color;
-    this.context.lineWidth = $width;
+  /*
+   * Draws a single line.
+   *
+   * transform (Spark.Transform):
+   * endX (Number):
+   * endY (Number):
+   * fill (Spark.Color):
+   * stroke (Spark.Color):
+   * strokeWidth (Number):
+   */
+  this.drawLine = function (params) {
+    transform(params.transform);
+
     this.context.beginPath();
-    this.context.moveTo($startX, $startY);
-    this.context.lineTo($endX, $endY);
-    this.context.stroke();
-    this.context.closePath();
+    this.context.moveTo(0, 0);
+    this.context.lineTo(params.endX, params.endY);
+
+    fillAndStroke(params.fill, params.stroke, params.strokeWidth);
+    reset();
   };
 
-  this.drawArc = function ($startX, $startY, $anchorX, $anchorY, $endX, $endY, $fill, $stroke, $strokeWidth) {
+  /*
+   * Draws a perfectly spherical arc.
+   *
+   * transform (Spark.Transform):
+   * radius (Number):
+   * startAngle (Number):
+   * endAngle (Number):
+   * fill (Spark.Color):
+   * stroke (Spark.Color):
+   * strokeWidth (Number):
+   */
+  this.drawArc = function (params) {
+    transform(params.transform);
+
+    this.context.beginPath();
+    this.context.arc(0, 0, params.radius, Math.degToRad(params.startAngle), Math.degToRad(params.endAngle));
+
+    fillAndStroke(params.fill, params.stroke, params.strokeWidth);
+    reset();
   };
 
-  this.drawBezierCurve = function ($startX, $startY, $anchor1X, $anchor1Y, $anchor2X, $anchor2Y, $endX, $endY, $fill, $stroke, $strokeWidth) {
-    this.context.fillStyle = $fill;
-    this.context.strokeStyle = $stroke;
-    this.context.lineWidth = $strokeWidth || 0;
+  /*
+   * Draws a bezier curve.
+   *
+   * transform (Spark.Transform):
+   * anchor1X (Number):
+   * anchor1Y (Number):
+   * anchor2X (Number):
+   * anchor2Y (Number):
+   * endX (Number):
+   * endY (Number):
+   * fill (Spark.Color):
+   * stroke (Spark.Color):
+   * strokeWidth (Number):
+   */
+  this.drawBezierCurve = function (params) {
+    transform(params.transform);
+
     this.context.beginPath();
+    this.context.moveTo(0, 0);
+    this.context.bezierCurveTo(params.anchor1X, params.anchor1Y, params.anchor2X, params.anchor2Y, params.endX, params.endY);
 
-    this.context.moveTo($startX, $startY);
-    this.context.bezierCurveTo($anchor1X, $anchor1Y, $anchor2X, $anchor2Y, $endX, $endY);
-
-    if ($fill) {
-      this.context.fill();
-    }
-
-    if ($stroke) {
-      this.context.stroke();
-    }
-
-    this.context.closePath();
+    fillAndStroke(params.fill, params.stroke, params.strokeWidth);
+    reset();
   };
 
-  this.drawQuadraticCurve = function ($startX, $startY, $anchorX, $anchorY, $endX, $endY, $fill, $stroke, $strokeWidth) {
-    this.context.fillStyle = $fill;
-    this.context.strokeStyle = $stroke;
-    this.context.lineWidth = $strokeWidth || 0;
+  /*
+   * Draws a quadratic curve.
+   *
+   * transform (Spark.Transform):
+   * anchorX (Number):
+   * anchorY (Number):
+   * endX (Number):
+   * endY (Number):
+   * fill (Spark.Color):
+   * stroke (Spark.Color):
+   * strokeWidth (Number):
+   */
+  this.drawQuadraticCurve = function (params) {
+    transform(params.transform);
+    
     this.context.beginPath();
+    this.context.moveTo(0, 0);
+    this.context.quadraticCurveTo(params.anchorX, params.anchorY, params.endX, params.endY);
 
-    this.context.moveTo($startX, $startY);
-    this.context.quadraticCurveTo($anchorX, $anchorY, $endX, $endY);
-
-    if ($fill) {
-      this.context.fill();
-    }
-
-    if ($stroke) {
-      this.context.stroke();
-    }
-
-    this.context.closePath();
+    fillAndStroke(params.fill, params.stroke, params.strokeWidth);
+    reset();
   };
 
   /*
    * Draws an image
+   *
+   * transform (Spark.Transform):
+   * image (Spark.Image):
+   * clip (Object):
    */
   this.drawImage = function (params) {
-    this.context.save();
+    transform(params.transform);
 
-    this.context.translate(params.transform.positionX, params.transform.positionY);
-    this.context.rotate(Math.degToRad(params.transform.rotation));
-    this.context.scale(params.transform.scaleX, params.transform.scaleY);
+    if (params.clip) {
+      this.context.beginPath();
+      this.context.rect(params.clip.x, params.clip.y, params.clip.width, params.clip.height);
+      this.context.clip();
+    }
+
+    this.context.drawImage(params.image.get(), 0, 0);
+
+    reset();
+  };
+
+  /*
+   * Draws a sprite from a spritesheet.
+   */
+  this.drawSprite = function (params) {
+    transform(params.transform);
 
     if (params.clip) {
       this.context.beginPath();
@@ -341,12 +483,19 @@ window.Spark.Core = function () {
       this.context.drawImage(params.image, 0, 0);
     }
 
-    this.context.restore();
+    reset();
   };
 
   /*
    * Draws a closed path.
    * TODO: receive and array of classes (Line, Curve, BezierCurve and QuadraticCurve) instead of objects.
+   *
+   * transform (Spark.Transform):
+   * segments (????):
+   * startingPoint (????):
+   * fill (Spark.Color):
+   * stroke (Spark.Color):
+   * strokeWidth (Number):
    */
   this.drawPath = function (params) {
     transform(params.transform);
