@@ -466,22 +466,28 @@ window.Spark.Core = function () {
   };
 
   /*
-   * Draws a sprite from a spritesheet.
+   * Draws a sprite from a spritesheet. The spritesheet can be of any size, but every tile must have the same dimensions.
+   *
+   * transform (Spark.Transform):
+   * image (Spark.Image):
+   * columns (Number):
+   * rows (Number):
+   * tileColumn (Number):
+   * tileRow (Number):
    */
   this.drawSprite = function (params) {
+    var w = params.image.get().width / params.columns;
+    var h = params.image.get().height / params.rows;
+
     transform(params.transform);
 
-    if (params.clip) {
+    if (params.columns > 1 || params.rows > 1) {
       this.context.beginPath();
-      this.context.rect(params.clip.x, params.clip.y, params.clip.width, params.clip.height);
+      this.context.rect(0, 0, w, h);
       this.context.clip();
     }
 
-    if (params.offset) {
-      this.context.drawImage(params.image, 0 - (params.offset.x || 0), 0 - (params.offset.y || 0));
-    } else {
-      this.context.drawImage(params.image, 0, 0);
-    }
+    this.context.drawImage(params.image.get(), 0 - (params.tileColumn * w), 0 - (params.tileRow * h));
 
     reset();
   };
