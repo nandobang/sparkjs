@@ -1,111 +1,16 @@
-window.Spark = window.Spark || {};
-
 /*
- * Color used for fills, strokes, gradients, etc.
- *
- * value (String): hexadecimal representation of the color. Default: #000000.
+ * The core class.
+ * TODO: rename this to "Renderer".
  */
-window.Spark.Color = function (params) {
-  this.value = params.value || '#000000';
-  this.toString = function () { return this.value; }
-};
-
-/*
- * Color stops used on gradients.
- *
- * position (Number): the position of this ColorStop when used on a gradient, ranging from 0 to 1. If omitted, it is calculated automatically.
- * color (Color): the color used for this ColorStop.
- */
-window.Spark.ColorStop = function (params) {
-  this.position = params.position;
-  this.color = params.color || new Spark.Color();
-};
-
-/*
- * Gradients used for fill/stroke.
- *
- * type (GradientType): the type of the gradient.
- * colorStops (ColorStop[]): array of ColorStops.
- * startX (Number): horizontal starting point relative to the top-left transform point.
- * startY (Number): vertical starting point relative to the top-left transform point.
- * endX (Number): horizontal ending point relative to the top-left transform point.
- * endY (Number): vertical ending point relative to the top-left transform point.
- * innerRadius (Number): inner radius where the color ramp starts (only for radial gradients).
- * outerRadius (Number): outer radius where the color ramp stops (only for radial gradients).
- */
-window.Spark.Gradient = function (params) {
-  this.type = params.type || Spark.GradientType.LINEAR;
-  this.colorStops = params.colorStops || [];
-  this.startX = params.startX || 0;
-  this.startY = params.startY || 0;
-  this.endX = params.endX || 0;
-  this.endY = params.endY || 0;
-  this.innerRadius = params.innerRadius || 0;
-  this.outerRadius = params.outerRadius || 1;
-};
-
-/*
- * Constants for defining gradient types.
- */
-window.Spark.GradientType = {
-  LINEAR: 'linear',
-  RADIAL: 'radial'
-};
-
-/*
- * Transform with translation, rotation and scale.
- *
- * positionX (Number):
- * positionY (Number):
- * rotation (Number):
- * scaleX (Number):
- * scaleY (Number):
- * offsetX (Number):
- * offsetY (Number):
- */
-window.Spark.Transform = function (params) {
-  this.positionX = params.positionX || 0;
-  this.positionY = params.positionY || 0;
-  this.rotation = params.rotation || 0;
-  this.scaleX = params.scaleX || 1;
-  this.scaleY = params.scaleY || 1;
-  this.offsetX = params.offsetX || 0;
-  this.offsetY = params.offsetY || 0;
-};
-
-/*
- * Base class for images used on rendering.
- *
- * TODO: load LZMA compressed string.
- */
-window.Spark.Image = function (params) {
-  var image = new Image();
-
-  this.get = function () {
-    return image;
-  };
-
-  this.loadFromUrl = function (url) {
-    image.src = url;
-  };
-
-  this.loadFromBase64 = function (type, content) {
-    image.src = 'data:image/' + type + ';base64,' + content;
-  };
-
-  if (params.url) {
-    image.src = params.url;
-  } else if (params.type && params.content) {
-    image.src = 'data:image/' + params.type + ';base64,' + params.content;
-  }
-};
-
 window.Spark.Core = function () {
   /* PRIVATE */
   var self = this;
   var framesRendered = 0;
   var fpsLastTime = 0;
 
+  /*
+   * TODO: accept percentage values.
+   */
   var transform = function (transform) {
     self.context.save();
 
@@ -173,10 +78,10 @@ window.Spark.Core = function () {
 
   /* PUBLIC */
 
-  this.canvas;
-  this.context;
-  this.deltaTime;
-  this.fps;
+  this.canvas = {};
+  this.context = {};
+  this.deltaTime = 0;
+  this.fps = 0;
   this.showFps = false;
 
   /*
@@ -194,7 +99,6 @@ window.Spark.Core = function () {
     this.canvas = document.getElementById(canvasId);
     this.canvas.setAttribute('width', $width);
     this.canvas.setAttribute('height', $height);
-    this.canvas.setAttribute('style', 'border: 1px solid #dddddd;');
     this.context = this.canvas.getContext('2d');
     this.setupRequestAnimationFrame();
   };
@@ -217,7 +121,7 @@ window.Spark.Core = function () {
 
       $mainLoop();
 
-      if (self.showFps == true) {
+      if (self.showFps === true) {
         self.drawText({
           transform: {
             positionX: 630,
