@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <script type="text/javascript" src="../../build/sparkjs-0.1.0.min.js"></script>
+    <script type="text/javascript" src="../../build/util-0.1.0.min.js"></script>
+
+    <style type="text/css">
+      body {
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="canvasContainer"></div>
+  </body>
+
+  <script type="text/javascript">
+    var cc = new Spark.Core();
+
+    cc.setup('canvasContainer', 640, 480);
+
+    cc.showFps = true;
+
+    cc.setMainLoop(function () {
+      cc.drawEllipse({
+        transform: new Spark.Transform({
+          positionX: 200,
+          positionY: 170,
+          offsetX: -15,
+          offsetY: -15,
+          scaleX: 2,
+          scaleY: 2
+        }),
+        width: 30,
+        height: 60,
+        fill: new Spark.Color({value: '#666'}),
+        stroke: new Spark.Color({value: '#000'}),
+        strokeWidth: 2
+      });
+
+      cc.drawEllipse({
+        transform: new Spark.Transform({
+          positionX: 350,
+          positionY: 220,
+          rotation: -45,
+          offsetX: -15,
+          offsetY: -15,
+          scaleX: 2,
+          scaleY: 2
+        }),
+        width: 60,
+        height: 30,
+        fill: new Spark.Gradient({
+          type: Spark.GradientType.LINEAR,
+          endX: 0,
+          endY: 30,
+          colorStops: [
+            new Spark.ColorStop({position: 0, color: new Spark.Color({value: '#fff'})}),
+            new Spark.ColorStop({position: 1, color: new Spark.Color({value: '#300'})})
+          ]
+        }),
+        stroke: new Spark.Gradient({
+          type: Spark.GradientType.LINEAR,
+          endX: 0,
+          endY: 30,
+          colorStops: [
+            new Spark.ColorStop({position: 0, color: new Spark.Color({value: '#300'})}),
+            new Spark.ColorStop({position: 1, color: new Spark.Color({value: '#fff'})})
+          ]
+        }),
+        strokeWidth: 2
+      });
+    });
+  </script>
+</html>

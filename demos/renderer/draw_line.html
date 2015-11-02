@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <script type="text/javascript" src="../../build/sparkjs-0.1.0.min.js"></script>
+    <script type="text/javascript" src="../../build/util-0.1.0.min.js"></script>
+
+    <style type="text/css">
+      body {
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="canvasContainer"></div>
+  </body>
+
+  <script type="text/javascript">
+    var cc = new Spark.Core();
+
+    cc.setup('canvasContainer', 640, 480);
+
+    cc.showFps = true;
+
+    cc.setMainLoop(function () {
+      for (var i = 0; i < 10; i++) {
+        cc.drawLine({
+          transform: new Spark.Transform({
+            positionX: 0,
+            positionY: (48 * i) + 0.5
+          }),
+          endX: 640,
+          endY: 0,
+          stroke: new Spark.Color({value: '#ccc'})
+        });
+      }
+
+      for (var i = 0; i < 13; i++) {
+        cc.drawLine({
+          transform: new Spark.Transform({
+            positionX: (64 * i) + 0.5,
+            positionY: 0
+          }),
+          endX: 0,
+          endY: 480,
+          stroke: new Spark.Color({value: '#ccc'})
+        });
+      }
+
+      cc.drawLine({
+        transform: new Spark.Transform({
+          positionX: 320.5,
+          positionY: 0
+        }),
+        endX: 0,
+        endY: 480,
+        stroke: new Spark.Color({value: '#333'})
+      });
+
+      cc.drawLine({
+        transform: new Spark.Transform({
+          positionX: 0,
+          positionY: 240.5
+        }),
+        endX: 640,
+        endY: 0,
+        stroke: new Spark.Color({value: '#333'})
+      });
+    });
+  </script>
+</html>
