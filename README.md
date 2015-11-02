@@ -1,5 +1,15 @@
-# Spark
+# SparkJS
 
-# Demo [here](http://nandobang.github.io/sparkjs)
+Spark is a library for creating multimedia content using HTML5 Canvas. From graphs, passing through animations to games, anything can be done.
 
-Canvas engine for creating multimedia content. Like Flash, but, better!
+## Log
+
+**2015/11/02:** Initial version. Rendering of shapes, text, images and sprites.
+
+## Demos
+
+There is a folder `demos` organized by categories.
+
+## Documentation
+
+WIP.
